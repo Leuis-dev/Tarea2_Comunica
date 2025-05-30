@@ -2,29 +2,57 @@ import serial
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Ajusta el puerto al tuyo
-ser = serial.Serial('COM5', 9600, timeout=1)
+# Parámetros
+PUERTO      = 'COM5'
+BAUD_RATE   = 9600
+WIDTH       = 32
+PIXELS      = WIDTH * WIDTH
+BITS_PER_P  = 24
+BYTES_PER_P = BITS_PER_P // 8    # =3
+PACKETS     = PIXELS // BITS_PER_P
 
-while True:
-    # 1) Leer encabezado y quitar solo '\r' y '\n'
-    header = ser.readline().decode('utf-8', errors='ignore').rstrip('\r\n')
-    # print("DEBUG header:", repr(header))
+# Protocolo
+START_BYTE  = 0xAA
+SENDER_ID   = 0x01
+RECEIVER_ID = 0x02
 
-    if header.startswith('===== IMAGEN RECIBIDA ====='):
-        print("Imagen recibida, procesando...")
-        data = []
-        for _ in range(32):
-            # 2) Leer la fila y quitar solo saltos de línea
-            row = ser.readline().decode('utf-8', errors='ignore').rstrip('\r\n')
-            # 3) Si quedó corta (menos de 32), rellenar con espacios
-            if len(row) < 32:
-                row = row.ljust(32)
-            # 4) Convertir cada uno de los 32 caracteres
-            data.append([1 if c == '#' else 0 for c in row[:32]])
-        img = np.array(data)
+ser = serial.Serial(PUERTO, BAUD_RATE, timeout=1)
+img = np.zeros((WIDTH, WIDTH), dtype=np.uint8)
 
-        # 5) Mostrar la imagen
-        plt.figure()
-        plt.imshow(img, cmap='gray', interpolation='nearest')
-        plt.axis('off')
-        plt.show()
+print("Esperando paquetes...")
+
+received = 0
+while received < PACKETS:
+    b = ser.read(1)
+    if not b or b[0] != START_BYTE:
+        continue
+
+    resto = ser.read(1 + 1 + BYTES_PER_P + 1)
+    if len(resto) != (1 + 1 + BYTES_PER_P + 1):
+        continue
+
+    sender, receiver, seq, b0, b1, b2, checksum = resto
+    if sender != SENDER_ID or receiver != RECEIVER_ID:
+        continue
+    if seq >= PACKETS:
+        continue
+
+    suma = (START_BYTE + sender + receiver + seq + b0 + b1 + b2) & 0xFF
+    if suma != checksum:
+        print(f"Paquete {seq} corrupto")
+        continue
+
+    bits = (b0 << 16) | (b1 << 8) | b2
+    for bit in range(BITS_PER_P):
+        gbit = seq * BITS_PER_P + bit
+        row = gbit // WIDTH
+        col = gbit % WIDTH
+        img[row, col] = (bits >> (BITS_PER_P - 1 - bit)) & 0x01
+
+    received += 1
+    print(f"Recibido paquete {seq+1}/{PACKETS}")
+
+plt.figure(figsize=(4,4))
+plt.imshow(img, cmap='gray', vmin=0, vmax=1, interpolation='nearest')
+plt.axis('off')
+plt.show()

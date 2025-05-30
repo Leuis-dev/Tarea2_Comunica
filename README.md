@@ -1,4 +1,5 @@
-# Comunica el culazo de la maza
+# Comunica el arduino del arduino
+
 Desarrollo de un Sistema de Comunicación inalámbrica con Arduino
 
 La comunicación inalámbrica es en la actualidad una de las áreas más activas de investigación 

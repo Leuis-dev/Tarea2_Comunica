@@ -1,81 +1,51 @@
+// tx_433_image_debug.ino
+// ----------------------
+// Este es tu TX (transmisor). Lee paquetes de 6 bytes desde el puerto Serial (USB)
+// y los retransmite por el módulo 433 MHz usando VirtualWire. Además imprime por
+// el Monitor Serie el campo `seq` (byte 3) de cada paquete, para que veas
+// en qué orden está recibiendo los índices de Python.
+//
+// Conexiones para TX:
+//  - Módulo TX 433 MHz:
+//      VCC → 5V
+//      GND → GND
+//      DATA → D2
+//      ANT → antena (~10 cm de cable)
+//  - LED (opcional) integrado o externo → D13 (con resistencia a GND)
+
 #include <VirtualWire.h>
-#include <avr/pgmspace.h>
-#include "imagen32x32.h"
 
-// Protocolo
-#define START_BYTE      0xAA
-#define SENDER_ID       0x01
-#define RECEIVER_ID     0x02
+#define PACKET_SIZE 6    // Cada paquete de Python mide 6 bytes: [AA, 01, 02, seq, data, checksum]
 
-// Parámetros de imagen
-const uint8_t WIDTH           = 32;                    // 32×32 píxeles
-const uint16_t PIXELS         = uint16_t(WIDTH) * WIDTH;
-const uint8_t  BITS_PER_P     = 24;                    // 24 píxeles/paquete
-const uint8_t  BYTES_PER_P    = BITS_PER_P / 8;        // 3 bytes de imagen
-const uint16_t PACKETS_TOTAL  = (PIXELS + BITS_PER_P - 1) / BITS_PER_P;
-
-// Buffer plano: cada byte = 8 píxeles
-uint8_t flatImg[(PIXELS + 7) / 8];
-
-void flattenImage() {
-  uint16_t bitIndex = 0;
-  for (uint8_t row = 0; row < WIDTH; ++row) {
-    for (uint8_t b = 0; b < WIDTH/8; ++b) {
-      uint8_t val = pgm_read_byte(&(image_data[row][b]));
-      for (int8_t bit = 7; bit >= 0; --bit) {
-        uint8_t pix = (val >> bit) & 0x01;
-        uint16_t bytePos = bitIndex / 8;
-        uint8_t  bitPos  = 7 - (bitIndex % 8);
-        flatImg[bytePos] |= (pix << bitPos);
-        bitIndex++;
-      }
-    }
-  }
-}
+const int PIN_DATA = 2;    // DATA del transmisor 433 MHz conectado a D2 de Arduino
+const int LED_TX   = 13;   // LED parpadea cada vez que transmite
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("Transmisor 32×32 (24b/paq) listo");
-
-  vw_set_ptt_inverted(true);
-  vw_setup(2000);
-  vw_set_tx_pin(2);
-
-  memset(flatImg, 0, sizeof(flatImg));
-  flattenImage();
+  Serial.begin(9600);         // 9600 bps para debug en TX
+  vw_set_ptt_inverted(true);  // Si tu módulo TX no transmite, prueba comentando esta línea
+  vw_set_tx_pin(PIN_DATA);    // Configura VirtualWire para transmitir por D2
+  vw_setup(2000);             // VirtualWire a 2000 bps (RX debe usar el mismo)
+  pinMode(LED_TX, OUTPUT);
+  digitalWrite(LED_TX, LOW);
+  Serial.println("[TX] Listo. Esperando paquetes de Python...");
 }
 
 void loop() {
-  static uint16_t seq = 0;
-  uint8_t packet[1+1+1+1+BYTES_PER_P+1];
-  uint8_t idx = 0;
+  if (Serial.available() >= PACKET_SIZE) {
+    uint8_t packet[PACKET_SIZE];
+    Serial.readBytes(packet, PACKET_SIZE);
 
-  packet[idx++] = START_BYTE;
-  packet[idx++] = SENDER_ID;
-  packet[idx++] = RECEIVER_ID;
-  packet[idx++] = seq;  // secuencia
+    // Imprimimos el índice de secuencia (packet[3]) para verificar orden
+    uint8_t seq = packet[3];
+    Serial.print("[TX] Recibí seq = ");
+    Serial.println(seq);
 
-  uint16_t base = seq * BYTES_PER_P;
-  for (uint8_t j = 0; j < BYTES_PER_P; ++j) {
-    packet[idx++] = flatImg[base + j];
-  }
+    // Transmitir los 6 bytes por RF
+    digitalWrite(LED_TX, HIGH);
+    vw_send((uint8_t*)packet, PACKET_SIZE);
+    vw_wait_tx();
+    digitalWrite(LED_TX, LOW);
 
-  uint16_t sum = 0;
-  for (uint8_t i = 0; i < idx; ++i) sum += packet[i];
-  packet[idx++] = sum & 0xFF;
-
-  vw_send(packet, idx);
-  vw_wait_tx();
-
-  Serial.print("Enviado paquete ");
-  Serial.println(seq);
-
-  seq++;
-  if (seq >= PACKETS_TOTAL) {
-    seq = 0;
-    Serial.println("**Frame completo**");
-    delay(500);
-  } else {
-    delay(100);
+    delay(5);  // breve retardo para no saturar el RF
   }
 }

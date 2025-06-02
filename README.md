@@ -13,19 +13,16 @@ y la degradación de la señal en el espacio,  permiten que muchos de los bit de
 enviados se vean modificados en el trayecto producto de las condiciones del entorno, 
 generando con esto, errores  en la transmisión de los  datos.
 
-
-
-
 Transmisión de Imagen 32×32 vía Arduino 433 MHz
 Este repositorio contiene todo lo necesario para enviar una imagen binarizada de 32 × 32 píxeles desde un PC a un Arduino receptor usando módulos RF de 433 MHz. El flujo completo es:
 
 Python (ima.py): procesa la imagen, la convierte a paquetes de 6 bytes y los envía por USB al Arduino TX.
 
-Arduino TX (transmisor.ino): recibe esos paquetes por Serial, imprime el índice de secuencia y los retransmite por RF.
+Arduino TX (tx_433_image_debug.ino): recibe esos paquetes por Serial, imprime el índice de secuencia y los retransmite por RF.
 
-Arduino RX (receptor.ino): recibe cada paquete de RF, valida cabecera/IDs/checksum, imprime el índice y el byte de datos, parpadea un LED y, al completar 128 paquetes, reconstruye e imprime la matriz 32 × 32.
+Arduino RX (rx_433_debug_data.ino): recibe cada paquete de RF, valida cabecera/IDs/checksum, imprime el índice y el byte de datos, parpadea un LED y, al completar 128 paquetes, reconstruye e imprime la matriz 32 × 32.
 
-Python (reconstruir.py): a partir de las 32 líneas de “0”/“1” impresas en el RX, genera y muestra la imagen reconstruida (32 × 32).(FALTA HACER)
+Python (reconstruir.py): a partir de las 32 líneas de “0”/“1” impresas en el RX, genera y muestra la imagen reconstruida (32 × 32).
 
 Índice
 Requisitos de Hardware
@@ -190,10 +187,15 @@ Cada imagen de 32×32 = 1 024 píxeles / 8 píxeles por paquete = 128 paquetes (
 Cargar Sketches en Arduino
 5.1. Sketch TX: tx_433_image_debug.ino
 arduino
+Copiar
+Editar
 #include <VirtualWire.h>
+
 #define PACKET_SIZE 6
+
 const int PIN_DATA = 2;    // DATA → D2
 const int LED_TX   = 13;   // LED opcional en D13
+
 void setup() {
   Serial.begin(9600);
   vw_set_ptt_inverted(true);
@@ -220,8 +222,6 @@ void loop() {
     delay(5);
   }
 }
-
-
 Abre este archivo en el IDE de Arduino.
 
 Selecciona el Arduino TX (puerto COM correcto).
@@ -230,9 +230,10 @@ Carga el sketch.
 
 Cierra el Monitor Serie de este Arduino (para liberar el COM).
 
-
 5.2. Sketch RX: rx_433_debug_data.ino
 arduino
+Copiar
+Editar
 #include <VirtualWire.h>
 
 #define WIDTH        32
@@ -325,10 +326,11 @@ Carga el sketch.
 
 Abre el Monitor Serie a 9600 bps.
 
-
 6. Enviar la Imagen desde Python
 6.1. ima.py
 python
+Copiar
+Editar
 from PIL import Image
 import numpy as np
 import serial
@@ -375,9 +377,6 @@ for seq in range(TOTAL_PKTS):
 
 print(f"[Python] Total de paquetes a enviar: {len(packets)}")
 
-
-
-
 # Paso 5: Abrir Serial y enviar
 PUERTO    = 'COM6'   # Cambiar por tu puerto TX
 BAUD_RATE = 9600
@@ -402,9 +401,11 @@ Ajusta PUERTO al COM del Arduino TX.
 Asegúrate de que el Monitor Serie de TX esté cerrado.
 
 En consola, ejecuta:
-nginx
-python ima.py
 
+nginx
+Copiar
+Editar
+python ima.py
 7. Reconstruir la Imagen desde la Matriz
 7.1. Copiar la Matriz desde Arduino RX
 En el Monitor Serie de RX, al final verás:

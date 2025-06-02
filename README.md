@@ -16,57 +16,76 @@ generando con esto, errores  en la transmisión de los  datos.
 
 
 
-# Transmisión de Imagen 32×32 vía Arduino 433 MHz
+Transmisión de Imagen 32×32 vía Arduino 433 MHz
+Este repositorio contiene todo lo necesario para enviar una imagen binarizada de 32 × 32 píxeles desde un PC a un Arduino receptor usando módulos RF de 433 MHz. El flujo completo es:
 
-Este repositorio contiene todo lo necesario para enviar una imagen binarizada de 32×32 píxeles desde un PC a un Arduino receptor usando módulos RF de 433 MHz. El flujo completo es:
+Python (ima.py): procesa la imagen, la convierte a paquetes de 6 bytes y los envía por USB al Arduino TX.
 
-1. **Python (`ima.py`)**: procesa la imagen, la convierte a paquetes de 6 bytes y los envía por USB al Arduino TX.  
-2. **transmisor TX** (`transmisor.ino`): recibe esos paquetes por Serial, imprime el índice de secuencia y los retransmite por RF.  
-3. **Receptor RX** (`receptor.ino`): recibe cada paquete de RF, valida cabecera/IDs/checksum, imprime el índice y el byte de datos, parpadea un LED y, al completar 128 paquetes, reconstruye e imprime la matriz 32×32.  
-4. **Python (`reconstruir.py`)**: a partir de las 32 líneas de “0”/“1” impresas en el RX, genera y muestra la imagen reconstruida (32×32). (FALTA HACERLO)
+Arduino TX (transmisor.ino): recibe esos paquetes por Serial, imprime el índice de secuencia y los retransmite por RF.
 
----
+Arduino RX (receptor.ino): recibe cada paquete de RF, valida cabecera/IDs/checksum, imprime el índice y el byte de datos, parpadea un LED y, al completar 128 paquetes, reconstruye e imprime la matriz 32 × 32.
 
-## Índice
+Python (reconstruir.py): a partir de las 32 líneas de “0”/“1” impresas en el RX, genera y muestra la imagen reconstruida (32 × 32).(FALTA HACER)
 
-1. [Requisitos de Hardware](#requisitos-de-hardware)  
-2. [Requisitos de Software](#requisitos-de-software)  
-3. [Conexiones de Hardware](#conexiones-de-hardware)  
-4. [Estructura de un paquete](#estructura-de-un-paquete)  
-5. [Cargar Sketches en Arduino](#cargar-sketches-en-arduino)  
-   - 5.1. Sketch TX: `tx_433_image_debug.ino`  
-   - 5.2. Sketch RX: `rx_433_debug_data.ino`  
-6. [Enviar la Imagen desde Python](#enviar-la-imagen-desde-python)  
-   - 6.1. `ima.py`  
-7. [Reconstruir la Imagen desde la Matriz](#reconstruir-la-imagen-desde-la-matriz)  
-   - 7.1. Copiar la matriz del Monitor Serie de RX  
-   - 7.2. `reconstruir.py`  
-8. [Flujo de Ejecución Completo](#flujo-de-ejecución-completo)  
-9. [Solución de Problemas Comunes](#solución-de-problemas-comunes)  
-10. [Licencia](#licencia)  
+Índice
+Requisitos de Hardware
 
----
+Requisitos de Software
 
-## Requisitos de Hardware
+Conexiones de Hardware
 
-- **2× Arduino UNO (o equivalente)**  
-  - Uno como **TX (emisor)**, conectado al PC por USB.  
-  - Otro como **RX (receptor)**.  
-- **2× Módulo 433 MHz**  
-  - Módulo transmisor (con antena)  
-  - Módulo receptor (con antena)  
-- **LED + resistencia 220 Ω**  
-  - Indicador de envío en TX (pin 13) (opcional).  
-  - Indicador de recepción en RX (pin 8).  
-- Cables Dupont / Breadboard.  
+Estructura de un paquete
 
----
+Cargar Sketches en Arduino
 
-## Requisitos de Software
+Sketch TX: tx_433_image_debug.ino
 
-- **Python 3.x** con librerías:
-  ```bash
-  pip install pillow numpy pyserial matplotlib
+Sketch RX: rx_433_debug_data.ino
+
+Enviar la Imagen desde Python
+
+ima.py
+
+Reconstruir la Imagen desde la Matriz
+
+Copiar la matriz del Monitor Serie de RX
+
+reconstruir.py
+
+Flujo de Ejecución Completo
+
+Solución de Problemas Comunes
+
+Licencia
+
+Requisitos de Hardware
+2× Arduino UNO (o equivalente)
+
+Uno como TX (emisor), conectado al PC por USB.
+
+Otro como RX (receptor).
+
+2× Módulo 433 MHz
+
+Módulo transmisor (con antena)
+
+Módulo receptor (con antena)
+
+LED + resistencia 220 Ω
+
+Indicador de envío en TX (pin 13) (opcional).
+
+Indicador de recepción en RX (pin 8).
+
+Cables Dupont / Breadboard.
+
+Requisitos de Software
+Python 3.x con librerías:
+
+nginx
+Copiar
+Editar
+pip install pillow numpy pyserial matplotlib
 IDE de Arduino (1.8.x o superior) con la librería VirtualWire instalada:
 
 Abrir “Sketch → Include Library → Manage Libraries…”.
@@ -83,7 +102,7 @@ GND → GND
 
 DATA → D2 (PIN_DATA = 2 en el sketch)
 
-ANT → Antena (~ 10 cm de cable)
+ANT → Antena (≈ 10 cm de cable)
 
 (Opcional) LED
 
@@ -100,7 +119,7 @@ GND → GND
 
 DATA → D2 (PIN_DATA = 2 en el sketch)
 
-ANT → Antena (~ 10 cm de cable)
+ANT → Antena (≈ 10 cm de cable)
 
 LED de notificación
 
@@ -111,37 +130,37 @@ Cátodo → Resistencia 220 Ω → GND
 Estructura de un paquete
 Cada paquete enviado consta de 6 bytes, organizados así:
 
-Byte	Nombre	Valor/Descripción
+Byte	Nombre	Valor o Descripción
 0	START	0xAA (constante para identificar inicio de paquete)
-1	SENDER_ID	0x01 (identificador de emisor)
-2	RECEIVER_ID	0x02 (identificador de receptor)
-3	SEQ	Número de secuencia 0…127 (128 paquetes en total)
-4	DATA	1 byte = 8 bits de imagen (cada bit = un píxel B/N, MSB primero)
-5	CHECKSUM	Suma (byte 0 + byte 1 + byte 2 + byte 3 + byte 4) & 0xFF
+1	SENDER_ID	0x01 (identificador del emisor)
+2	RECEIVER_ID	0x02 (identificador del receptor)
+3	SEQ	Número de secuencia 0…127 (128 paquetes en total, uno por cada 8 píxeles)
+4	DATA	1 byte = 8 bits de imagen (cada bit = un píxel B/N, MSB primero).
+5	CHECKSUM	Suma de los 5 bytes anteriores ((Byte0+Byte1+Byte2+Byte3+Byte4)&0xFF).
 
 Byte 3 (SEQ):
-Valor entero entre 0 y 127. Indica la posición del byte de datos dentro de los 1 024 píxeles totales.
+Valor entero de 0 a 127. Indica la posición del byte de datos dentro de los 1 024 píxeles totales (32×32).
 
-SEQ = 0 → cubre píxeles 0…7
+SEQ=0 → cubre píxeles 0…7
 
-SEQ = 1 → cubre píxeles 8…15
+SEQ=1 → cubre píxeles 8…15
 
 …
 
-SEQ = 127 → cubre píxeles 1 016…1 023
+SEQ=127 → cubre píxeles 1 016…1 023
 
 Byte 4 (DATA):
-Un byte cuyas 8 bits (b7…b0) representan 8 píxeles consecutivos.
+1 byte cuyas 8 bits (b7…b0) representan 8 píxeles.
 
-Bit 7 (MSB) → píxel (SEQ*8 + 0)
+Bit 7 (MSB) → píxel (SEQ*8+0)
 
-Bit 6 → píxel (SEQ*8 + 1)
+Bit 6 → píxel (SEQ*8+1)
 
 …
 
-Bit 0 (LSB) → píxel (SEQ*8 + 7)
+Bit 0 (LSB) → píxel (SEQ*8+7)
 
-Por ejemplo, si SEQ=3 y DATA = 0b10110001 (0xB1):
+Ejemplo: si SEQ=3 y DATA=0b10110001 (0xB1):
 
 bit 7 = 1 → píxel 24 blanco
 
@@ -165,26 +184,16 @@ kotlin
 Copiar
 Editar
 CHECKSUM = (Byte 0 + Byte 1 + Byte 2 + Byte 3 + Byte 4) & 0xFF
-Sirve para validar integridad en el receptor.
-
-TOTAL PAQUETES:
-
+Total paquetes:
 Cada imagen de 32×32 = 1 024 píxeles / 8 píxeles por paquete = 128 paquetes (SEQ 0…127).
-
-Así cumplimos con la TAREA 2: enviar exactamente 128 paquetes, cada uno con 1 byte de datos que cubre 8 píxeles.
 
 Cargar Sketches en Arduino
 5.1. Sketch TX: tx_433_image_debug.ino
-cpp
-Copiar
-Editar
+arduino
 #include <VirtualWire.h>
-
 #define PACKET_SIZE 6
-
 const int PIN_DATA = 2;    // DATA → D2
 const int LED_TX   = 13;   // LED opcional en D13
-
 void setup() {
   Serial.begin(9600);
   vw_set_ptt_inverted(true);
@@ -211,6 +220,8 @@ void loop() {
     delay(5);
   }
 }
+
+
 Abre este archivo en el IDE de Arduino.
 
 Selecciona el Arduino TX (puerto COM correcto).
@@ -219,10 +230,9 @@ Carga el sketch.
 
 Cierra el Monitor Serie de este Arduino (para liberar el COM).
 
+
 5.2. Sketch RX: rx_433_debug_data.ino
-cpp
-Copiar
-Editar
+arduino
 #include <VirtualWire.h>
 
 #define WIDTH        32
@@ -315,11 +325,10 @@ Carga el sketch.
 
 Abre el Monitor Serie a 9600 bps.
 
+
 6. Enviar la Imagen desde Python
 6.1. ima.py
 python
-Copiar
-Editar
 from PIL import Image
 import numpy as np
 import serial
@@ -366,6 +375,9 @@ for seq in range(TOTAL_PKTS):
 
 print(f"[Python] Total de paquetes a enviar: {len(packets)}")
 
+
+
+
 # Paso 5: Abrir Serial y enviar
 PUERTO    = 'COM6'   # Cambiar por tu puerto TX
 BAUD_RATE = 9600
@@ -390,11 +402,9 @@ Ajusta PUERTO al COM del Arduino TX.
 Asegúrate de que el Monitor Serie de TX esté cerrado.
 
 En consola, ejecuta:
-
-bash
-Copiar
-Editar
+nginx
 python ima.py
+
 7. Reconstruir la Imagen desde la Matriz
 7.1. Copiar la Matriz desde Arduino RX
 En el Monitor Serie de RX, al final verás:
@@ -474,81 +484,79 @@ Pega las 32 líneas en matrix_lines.
 
 Ejecuta:
 
-bash
+nginx
 Copiar
 Editar
 python reconstruir.py
 Verás la imagen reconstruida 32×32. Se guardará también reconstruida_32x32.png.
 
 8. Flujo de Ejecución Completo
-Conectar y cargar TX:
+Cargar TX
 
-diff
-Copiar
-Editar
-- Sketch: tx_433_image_debug.ino  
-- Arduino TX (cerrar Monitor Serie)  
-Conectar y cargar RX:
+Sketch: tx_433_image_debug.ino
 
-diff
-Copiar
-Editar
-- Sketch: rx_433_debug_data.ino  
-- Arduino RX (abrir Monitor Serie a 9600 bps)  
+Arduino TX (cierre del Monitor Serie)
+
+Cargar RX
+
+Sketch: rx_433_debug_data.ino
+
+Arduino RX (abrir Monitor Serie a 9600 bps)
+
 Editar ima.py:
 
-INPUT_PATH → ruta de tu PNG.
+INPUT_PATH → ruta de la imagen.
 
 PUERTO → COM del Arduino TX.
 
-Ejecutar:
+Ejecutar
 
-bash
+nginx
 Copiar
 Editar
 python ima.py
-TX (Monitor Serie cerrado) recibe e imprime "[TX] Recibí seq = ..." en orden 0→127.
+TX recibe e imprime “seq = …” en orden 0→127.
 
-RX (Monitor Serie abierto) imprime "[RX] Llegó seq = ... data = 0x...", LED en D8 parpadea.
+RX imprime “seq = … data = 0x…” y parpadea LED.
 
-Tras 128 paquetes, RX muestra 32 líneas de 32 “0”/“1”.
+Tras 128 paquetes, RX muestra 32 líneas de “0”/“1”.
 
 Copiar esas 32 líneas → pegar en reconstruir.py → ejecutar:
 
-bash
+nginx
 Copiar
 Editar
 python reconstruir.py
-Ver y, opcionalmente, guardar la imagen reconstruida 32×32.
+Imagen reconstruida 32×32 en pantalla y en reconstruida_32x32.png.
 
 9. Solución de Problemas Comunes
 TX imprime seq fuera de orden o no empieza en 0
 
-Cierra Monitores Serie en ese COM.
+Cerrar Monitores Serie que usen el mismo COM.
 
-Pulsar “RESET” en Arduino TX antes de ejecutar ima.py.
+Pulsar RESET en Arduino TX antes de ejecutar ima.py.
 
-Confirmar ser.reset_input_buffer() y ser.reset_output_buffer() en Python.
+Verificar que Python use ser.reset_input_buffer() y ser.reset_output_buffer().
 
-Aumentar time.sleep(2.5) si TX tarda en inicializar VirtualWire.
+Aumentar time.sleep(2.5) en Python si TX tarda en inicializar VirtualWire.
 
 RX recibe data = 0x00 en casi todos los paquetes
 
-Verificar que Python binariza tras redimensionar (convert('L') + umbral > 128).
+Confirmar que Python binariza tras redimensionar (convert('L') + umbral > 128).
 
-Revisar los mensajes de debug en Python ([Python DEBUG]) para asegurarse de que los primeros bytes empacados no sean cero.
+Revisar los mensajes de debug en Python ([Python DEBUG]) para asegurarse de que los bytes empacados no sean cero.
 
 Ajustar umbral si la imagen es muy oscura o muy clara.
 
 RX no parpadea con “PING” ni recibe paquetes
 
-Comprobar alimentación (VCC/GND) y cableado de módulos RF.
+Comprobar alimentación y cableado de módulos RF (VCC/GND/ANT).
 
-Asegurar antenas (10 cm de alambre) en TX y RX.
+Asegurar antenas (≈ 10 cm de alambre) en TX y RX.
 
 Verificar mismo bitrate: vw_setup(2000) en ambos sketches (o bajar a 1000 bps si hay interferencia).
 
-Reducir distancia inicial (< 50 cm) durante depuración.
+Reducir distancia inicial (< 50 cm) para depuración.
 
 Matriz final alterada o incompleta
 
@@ -558,14 +566,14 @@ En RX, añadir delay(5) antes de cada Serial.println(linea) en reconstruirYMostr
 
 Confirmar lógica de desempaquetado:
 
-cpp
+arduino
 Copiar
 Editar
 bool bit = (bytePix & (1 << (7 - b))) != 0;
 10. Licencia
-Este proyecto está bajo Licencia MIT.
+Este proyecto está bajo Licencia MIT:
 
-text
+sql
 Copiar
 Editar
 MIT License

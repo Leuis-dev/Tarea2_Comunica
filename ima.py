@@ -14,7 +14,7 @@ import time
 # ——————————————————————————————————————————
 # Parámetros de la imagen y protocolo de 6 bytes
 # ——————————————————————————————————————————
-INPUT_PATH   = r'C:/Users/sebas/OneDrive/Escritorio/archgithub/cofre.png'
+INPUT_PATH   = r'C:\Users\sebas\Downloads\Tarea2_Comunica-main (1)\Tarea2_Comunica-main\espada.png'
 WIDTH        = 32
 HEIGHT       = 32
 PIXELS       = WIDTH * HEIGHT          # 1024 bits totales
@@ -83,11 +83,14 @@ time.sleep(2.5)               # Esperar que Arduino TX arranque
 ser.reset_input_buffer()
 ser.reset_output_buffer()
 
-for idx, p in enumerate(packets):
-    ser.write(bytes(p))
-    ser.flush()
-    print(f"[Python] Enviado paquete {idx:03d}/127  Bytes = {' '.join(f'{b:02X}' for b in p)}")
-    time.sleep(0.10)          # 100 ms de retardo para evitar solapamientos
+repeticiones = 3
+for rep in range(repeticiones):
+    print(f"[Python] Enviando repetición {rep+1}/{repeticiones}")
+    for idx, p in enumerate(packets):
+        ser.write(bytes(p))
+        ser.flush()
+        print(f"[Python] Enviado paquete {idx:03d}/127  Bytes = {' '.join(f'{b:02X}' for b in p)}")
+        time.sleep(0.10)          # 100 ms de retardo para evitar solapamientos
 
-print("[Python] Todos los paquetes enviados. Cerrando Serial.")
+print("[Python] Todos los paquetes enviados 3 veces. Cerrando Serial.")
 ser.close()

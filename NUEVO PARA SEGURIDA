@@ -1,0 +1,219 @@
+instalar pycryptodome # pip install pycryptodome
+
+añadir en ima.py (el que esta afuera esta con la modificacion del loop y crc8)
+
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
+
+KEY = b'mi_clave_secreta'  # Debe tener 16 bytes
+# ( b'\x9f\x12\xe4\x7a\x8b\xd3\x45\x6c\x21\x9a\xf7\xbc\x50\x3e\xde\x81' )
+cipher = AES.new(KEY, AES.MODE_ECB)
+
+dentro de headers
+
+for seq in range(TOTAL_PKTS):
+    data = packed_bytes[seq]
+
+    # new
+    # AES cifra en bloques de 16 bytes, así que rellenamos el byte para cifrar
+    data_padded = pad(bytes([data]), 16)
+    encrypted = cipher.encrypt(data_padded)
+
+    # new
+    # Solo tomamos el primer byte del resultado cifrado (por simplicidad)
+    encrypted_byte = encrypted[0]
+
+    header = [START_BYTE, SENDER_ID, RECEIVER_ID, seq, encrypted_byte]
+    headers.append(header)
+
+------------------------------------------------------------------------------
+en receptor.ino
+usar libreria AESLib (hay que instalarla)
+
+nuevo codigo (revisar)
+
+// rx_433_image_crc8_freeze.ino + DESCIFRADO AES
+// --------------------------------------------------
+// Receptor 433 MHz con filtrado por ID, validación CRC-8 y descifrado AES
+
+#include <VirtualWire.h>
+#include <AESLib.h>
+
+#define WIDTH          32
+#define HEIGHT         32
+#define TOTAL_PIXELS   (WIDTH * HEIGHT)
+#define BITS_PER_PKT   8
+#define TOTAL_PKTS     (TOTAL_PIXELS / BITS_PER_PKT)
+
+const int PIN_DATA           = 2;
+const int LED_RX             = 8;
+const uint8_t MY_RECEIVER_ID = 0x03;
+
+const uint8_t POLY_CRC8      = 0x07;
+const uint8_t INIT_CRC8      = 0x00;
+
+uint8_t  dataBytes[TOTAL_PKTS];
+bool     receivedFlags[TOTAL_PKTS];
+uint16_t uniqueCount = 0;
+bool     imagenCompleta = false;
+
+AESLib aes;
+byte aes_key[] = "mi_clave_secreta";  // 16 bytes AES-128
+
+// ------------------------------------------------------------
+// DESCIFRA un byte usando AES (modo ECB), devuelve el primer byte del bloque
+// ------------------------------------------------------------
+byte aes_descifrar_byte(byte encrypted_byte) {
+  byte padded[16] = {0};
+  padded[0] = encrypted_byte;
+  byte decrypted[16];
+  aes.decrypt(padded, decrypted, aes_key, 128);
+  return decrypted[0];
+}
+
+uint8_t calcCRC8(const uint8_t *buf, uint8_t len) {
+  uint8_t crc = INIT_CRC8;
+  for (uint8_t i = 0; i < len; i++) {
+    crc ^= buf[i];
+    for (uint8_t b = 0; b < 8; b++) {
+      if (crc & 0x80) {
+        crc = ((crc << 1) ^ POLY_CRC8) & 0xFF;
+      } else {
+        crc = (crc << 1) & 0xFF;
+      }
+    }
+  }
+  return crc;
+}
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println(F("[RX] Iniciando (modo AES + CRC8 + filtro ID) a 500 bps…"));
+
+  vw_set_rx_pin(PIN_DATA);
+  vw_setup(500);
+  vw_rx_start();
+
+  pinMode(LED_RX, OUTPUT);
+  digitalWrite(LED_RX, LOW);
+
+  for (uint16_t i = 0; i < TOTAL_PKTS; i++) {
+    receivedFlags[i] = false;
+    dataBytes[i]     = 0x00;
+  }
+  uniqueCount    = 0;
+  imagenCompleta = false;
+
+  Serial.print(F("[RX] Filtrando ID = 0x"));
+  if (MY_RECEIVER_ID < 0x10) Serial.print('0');
+  Serial.println(MY_RECEIVER_ID, HEX);
+}
+
+void loop() {
+  uint8_t buf[6];
+  uint8_t buflen = sizeof(buf);
+
+  if (imagenCompleta) {
+    while (true) delay(1000);
+  }
+
+  if (vw_get_message(buf, &buflen)) {
+    if (buflen == 6) {
+      if (buf[0] == 0xAA && buf[1] == 0x01 && buf[2] == MY_RECEIVER_ID) {
+        uint8_t crc_calc = calcCRC8(buf, 5);
+        if (crc_calc == buf[5]) {
+          uint8_t seq  = buf[3];
+          byte data_cifrado = buf[4];
+          byte data = aes_descifrar_byte(data_cifrado);  // 🔓 Descifrado AES
+
+          Serial.print(F("[RX] Llegó seq = "));
+          Serial.print(seq);
+          Serial.print(F("   data (AES) = 0x"));
+          if (data < 0x10) Serial.print('0');
+          Serial.println(data, HEX);
+
+          if (seq < TOTAL_PKTS && !receivedFlags[seq]) {
+            receivedFlags[seq] = true;
+            dataBytes[seq]     = data;
+            uniqueCount++;
+
+            digitalWrite(LED_RX, HIGH);
+            delay(50);
+            digitalWrite(LED_RX, LOW);
+
+            Serial.print(F("[RX] Índices únicos recibidos: "));
+            Serial.println(uniqueCount);
+
+            if (seq == (TOTAL_PKTS - 1) && uniqueCount < TOTAL_PKTS) {
+              Serial.print(F("[ADVERTENCIA] Llegó seq=127 pero solo "));
+              Serial.print(uniqueCount);
+              Serial.println(F(" únicos. Faltan algunos."));
+              mostrarIndicesFaltantes();
+            }
+
+            if (uniqueCount == TOTAL_PKTS) {
+              imagenCompleta = true;
+              Serial.println(F("[RX] ¡128 índices únicos recibidos! Reconstruyendo la imagen…"));
+              reconstruirYMostrarImagen();
+              Serial.println(F("[RX] Imagen reconstruida. REINICIA el Arduino para nueva ronda."));
+            }
+          } else if (seq < TOTAL_PKTS && receivedFlags[seq] && !imagenCompleta) {
+            Serial.print(F("[RX] Paquete duplicado seq = "));
+            Serial.println(seq);
+          }
+        } else {
+          Serial.print(F("[RX] CRC inválido para seq = "));
+          Serial.println(buf[3]);
+        }
+      } else {
+        if (buf[0] != 0xAA || buf[1] != 0x01) {
+          Serial.println(F("[RX] Cabecera/Sender errónea → descartar."));
+        } else {
+          Serial.print(F("[RX] Paquete con ID = 0x"));
+          if (buf[2] < 0x10) Serial.print('0');
+          Serial.print(buf[2], HEX);
+          Serial.println(F(" no corresponde a este receptor → descartar."));
+        }
+      }
+    }
+    buflen = sizeof(buf);
+  }
+}
+
+void mostrarIndicesFaltantes() {
+  Serial.print(F("[INFO] Paquetes faltantes: "));
+  bool algunoFalta = false;
+  for (uint16_t i = 0; i < TOTAL_PKTS; i++) {
+    if (!receivedFlags[i]) {
+      Serial.print(i);
+      Serial.print(F(" "));
+      algunoFalta = true;
+    }
+  }
+  if (!algunoFalta) Serial.print(F("ninguno"));
+  Serial.println();
+}
+
+void reconstruirYMostrarImagen() {
+  static bool flatBits[TOTAL_PIXELS];
+
+  for (uint16_t i = 0; i < TOTAL_PKTS; i++) {
+    uint8_t bytePix = dataBytes[i];
+    uint16_t base   = i * BITS_PER_PKT;
+    for (uint8_t b = 0; b < BITS_PER_PKT; b++) {
+      bool bit = (bytePix & (1 << (7 - b))) != 0;
+      flatBits[base + b] = bit;
+    }
+  }
+
+  Serial.println(F("----- Imagen 32×32 recibida -----"));
+  for (uint8_t fila = 0; fila < HEIGHT; fila++) {
+    String linea = "";
+    for (uint8_t col = 0; col < WIDTH; col++) {
+      linea += (flatBits[fila * WIDTH + col] ? '1' : '0');
+    }
+    Serial.println(linea);
+  }
+  Serial.println(F("----- FIN de imagen -----"));
+}
+

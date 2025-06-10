@@ -4,8 +4,8 @@ import serial
 import time
 
 # ——— CIFRADO ASIMÉTRICO  ———
-e = 7       # Clave pública
-n = 187     # Módulo (producto de dos primos)
+e = 13      # Clave pública
+n = 247     # Módulo (producto de dos primos)
 
 INPUT_PATH = r'C:/Users/sebas/OneDrive/Escritorio/archgithub/cofre.png'
 WIDTH, HEIGHT = 32, 32

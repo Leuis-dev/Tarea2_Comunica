@@ -14,8 +14,8 @@ const uint8_t POLY_CRC8 = 0x07;
 const uint8_t INIT_CRC8 = 0x00;
 
 // Clave privada 
-#define D_RSA 23
-#define N_RSA 187
+#define D_RSA 133
+#define N_RSA 247
 
 uint8_t dataBytes[TOTAL_PKTS];
 bool receivedFlags[TOTAL_PKTS];

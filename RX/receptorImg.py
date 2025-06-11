@@ -23,7 +23,8 @@ def leer_imagen_serial():
 
     while True:
         linea = ser.readline().decode('utf-8', errors='ignore').strip()
-
+        if linea.startswith("[RX]"):
+                    print(f"[PAQUETE] {linea}") 
         if not linea:
             timeout_counter += 1
             if timeout_counter > max_timeout:
@@ -34,7 +35,9 @@ def leer_imagen_serial():
             timeout_counter = 0
 
         if not leyendo:
-            if linea == "----- Imagen 32×32 recibida -----":
+            if linea == "----- Imagen 32x32 reconstruida -----":
+
+
                 leyendo = True
                 imagen = []
                 lineas_leidas = 0
@@ -43,7 +46,7 @@ def leer_imagen_serial():
 
         # Ya estamos leyendo la imagen
         if leyendo:
-            if linea == "----- FIN de imagen -----":
+            if linea == "----- FIN -----":
                 if len(imagen) == 32:
                     print("Imagen completa recibida.")
                     mostrar_imagen(imagen)

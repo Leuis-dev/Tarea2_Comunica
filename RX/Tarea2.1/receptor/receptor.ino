@@ -200,7 +200,7 @@ void reconstruirYMostrarImagen() {
   }
 
   // 2) Imprimir la matriz 32×32 en el Monitor Serie
-  Serial.println(F("----- Imagen 32×32 recibida -----"));
+  Serial.println(F("----- Imagen 32x32 reconstruida -----"));
   for (uint8_t fila = 0; fila < HEIGHT; fila++) {
     String linea = "";
     for (uint8_t col = 0; col < WIDTH; col++) {
@@ -208,6 +208,6 @@ void reconstruirYMostrarImagen() {
     }
     Serial.println(linea);
   }
-  Serial.println(F("----- FIN de imagen -----"));
+  Serial.println(F("----- FIN -----"));
   // A partir de aquí, imagenCompleta = true, así que loop() “se congela”
 }
